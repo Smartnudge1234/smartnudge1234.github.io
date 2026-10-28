@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Smart Nudge System – Bed A12</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#1a3a63; --bg2:#122a49; --fg:#14202e; --muted:#5b6878; --panel:#ffffff; --line:#d5dbe3; --accent:#1a3a63;
+  --green:#22c55e; --amber:#f59e0b; --red:#ef4444; --state:#22c55e;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){ --bg:#0f2240; --bg2:#081426; --fg:#e7edf5; --muted:#9aa8b8; --panel:#16212f; --line:#2a3a50; --accent:#8fb6ea; }
+}
+:root[data-theme="dark"]{ --bg:#0f2240; --bg2:#081426; --fg:#e7edf5; --muted:#9aa8b8; --panel:#16212f; --line:#2a3a50; --accent:#8fb6ea; }
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{height:100%;margin:0;background:radial-gradient(ellipse at 50% 40%,var(--bg),var(--bg2));color:var(--fg);
+  font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden;-webkit-tap-highlight-color:transparent}
+button{font-family:inherit;cursor:pointer}
+button:focus-visible{outline:3px solid #60a5fa;outline-offset:2px}
+
+.edge{position:fixed;inset:0;pointer-events:none;box-shadow:inset 0 0 7vmin 1.2vmin var(--state);opacity:.5;transition:box-shadow .6s;z-index:1}
+
+.stage{height:100%;display:flex;align-items:center;justify-content:center;padding:52px 2vmin 2vmin}
+.device{position:relative;z-index:2;width:min(100%,940px);max-height:100%;
+  background:linear-gradient(#f5f4f0,#e3e1db);border-radius:max(18px,4.5vmin);padding:max(12px,3vmin);
+  display:grid;grid-template-columns:auto 1fr;grid-template-rows:1fr auto;column-gap:max(10px,3vmin);row-gap:max(8px,2.2vmin);
+  box-shadow:0 2vmin 5vmin rgba(0,0,0,.35),0 0 7vmin -1vmin var(--state);transition:box-shadow .6s}
+.device::before,.device::after{content:"";position:absolute;left:32%;width:36%;height:max(8px,2.2vmin);background:linear-gradient(#c9ccd0,#a9adb3);border-radius:4px}
+.device::before{top:max(-6px,-1.5vmin)} .device::after{bottom:max(-6px,-1.5vmin)}
+
+.side{grid-row:1 / span 2;display:flex;flex-direction:column;align-items:stretch;gap:max(8px,2.2vmin);width:max(56px,13vmin)}
+.lamp{flex:1;min-height:0;border-radius:max(10px,2.2vmin);background:
+  linear-gradient(90deg,rgba(255,255,255,.0) 0%,rgba(255,255,255,.45) 50%,rgba(255,255,255,0) 100%),var(--state);
+  border:max(4px,.9vmin) solid #fbfbf9;transition:background .6s,box-shadow .6s;
+  box-shadow:0 0 0 1px #cfccc5,inset 0 0 2.4vmin rgba(255,255,255,.55),0 0 5vmin var(--state)}
+.power{border-radius:max(8px,1.6vmin);border:1px solid #cfccc5;background:#f1f0ec;padding:max(6px,1.4vmin) 0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:600;font-size:max(9px,1.8vmin);color:#333;gap:.4vmin;
+  box-shadow:0 max(3px,.5vmin) 0 #cfccc5}
+.power b{font-size:max(16px,3.4vmin);font-weight:400;line-height:1}
+
+.screen{background:#000;border-radius:max(10px,2.4vmin);color:#fff;padding:max(8px,2vmin) max(10px,3vmin);display:flex;flex-direction:column;position:relative;overflow:hidden;min-height:0}
+.topline{display:flex;justify-content:space-between;align-items:center;font-size:max(10px,2.1vmin);color:#cfd6df}
+.ttl{text-align:center;font-size:max(10px,2.1vmin);color:#cfd6df;margin-top:.4vmin}
+.timer{display:flex;justify-content:center;align-items:center;gap:max(6px,1.2vmin);font-weight:800;font-size:clamp(40px,14vmin,150px);line-height:1;font-variant-numeric:tabular-nums;margin:.4vmin 0}
+.timer .sec{font-size:.3em;font-weight:600;color:#9aa6b4;align-self:flex-end;margin-bottom:.35em}
+.timer.over{color:var(--red)}
+.units{display:flex;flex-direction:column;font-size:max(9px,2vmin);font-weight:600;color:#cfd6df;line-height:1.2}
+.rule{height:1px;background:#2a3038;margin:max(4px,1vmin) 0}
+.status{text-align:center;font-weight:800;font-size:max(17px,4.6vmin);color:var(--state);transition:color .6s}
+.msg{text-align:center;font-size:max(11px,2.5vmin);color:#e3e8ee;line-height:1.35;margin-top:.4vmin}
+.next{text-align:center;font-size:max(10px,2.1vmin);color:#9aa6b4;margin-top:.4vmin}
+.foot{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid #2a3038;margin-top:auto;padding-top:max(6px,1.3vmin);font-size:max(9px,1.85vmin);color:#cfd6df;gap:1vmin}
+.foot div{display:flex;gap:.8vmin;align-items:center;line-height:1.25}
+.foot div+div{border-left:1px solid #2a3038;padding-left:1vmin}
+.foot svg{flex:none;width:max(14px,3vmin);height:max(14px,3vmin)}
+.foot .tap{color:#60a5fa}
+
+.btns{grid-column:2;display:grid;grid-template-columns:repeat(3,1fr);gap:max(8px,2vmin)}
+.pbtn{background:#f8f7f4;border:1px solid #cfccc5;border-radius:max(8px,1.6vmin);padding:max(6px,1.4vmin) 0;font-weight:600;font-size:max(11px,2.2vmin);color:#222;
+  display:flex;flex-direction:column;align-items:center;gap:.4vmin;box-shadow:0 max(3px,.5vmin) 0 #cfccc5;transition:transform .08s}
+.pbtn:active{transform:translateY(.4vmin);box-shadow:0 1px 0 #cfccc5}
+.pbtn .ico{font-size:max(16px,3.4vmin);line-height:1}
+.pbtn.sel{outline:max(3px,.5vmin) solid #3b82f6}
+
+.ov{position:absolute;inset:0;background:rgba(0,0,0,.96);display:none;flex-direction:column;align-items:center;justify-content:center;gap:max(6px,1.5vmin);text-align:center;padding:2vmin}
+.ov.show{display:flex}
+.ov h2{margin:0;font-size:max(15px,3.6vmin)}
+.ov p{margin:0;font-size:max(11px,2.3vmin);color:#cfd6df}
+.nfc{width:max(44px,10vmin);height:max(44px,10vmin);color:#60a5fa;animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{50%{transform:scale(1.12);opacity:.6}}
+.cards{display:flex;gap:max(6px,1.4vmin);flex-wrap:wrap;justify-content:center}
+.card{background:#14202e;color:#fff;border:1px solid #3a4f68;border-radius:max(8px,1.2vmin);padding:max(7px,1.2vmin) max(10px,2vmin);font-weight:600;font-size:max(11px,2.1vmin);text-align:left;line-height:1.3}
+.card span{display:block;font-weight:400;color:#9aa6b4;font-size:.85em}
+.linkbtn{background:none;border:none;color:#9aa8b8;font-size:max(11px,2vmin);text-decoration:underline}
+.check{width:max(48px,11vmin);height:max(48px,11vmin);color:var(--green)}
+.ov .pos{color:var(--amber);font-weight:800;font-size:max(15px,3.4vmin)}
+.ov .sync{color:#86efac;font-size:max(11px,2.1vmin)}
+
+.power{border:1px solid #c9c7c1;cursor:pointer;transition:background .2s}
+.power:active{background:#dddbd5}
+.power b{color:#16a34a}
+.off .power b{color:#888}
+.offscr{position:absolute;inset:0;background:#000;display:none;flex-direction:column;align-items:center;justify-content:center;gap:1vmin;z-index:3}
+.offscr p{margin:0;color:#3a3f46;font-size:max(11px,2.2vmin)}
+.off .offscr{display:flex}
+.off .lamp{background:#8a8f96!important;box-shadow:0 0 0 1px #cfccc5!important;animation:none!important}
+.off .device,.off .edge{box-shadow:0 2vmin 5vmin rgba(0,0,0,.35)!important}
+.off .edge{opacity:0}
+.off .pbtn{opacity:.45;pointer-events:none}
+.booting .lamp{background:#3b82f6!important;box-shadow:0 0 0 1px #cfccc5,0 0 5vmin #3b82f6!important}
+.booting .pbtn{pointer-events:none}
+.tag.sys{background:#3b82f622;color:#2563eb}
+@keyframes blink{50%{opacity:.2}}
+.blinking .lamp,.blinking .edge,.blinking .status{animation:blink 1s steps(1,end) infinite}
+@media (prefers-reduced-motion:reduce){.nfc{animation:none}}
+
+.tools{position:fixed;top:calc(env(safe-area-inset-top,0px) + 8px);left:50%;transform:translateX(-50%);display:flex;gap:6px;z-index:5}
+.tools button{background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:999px;padding:7px 12px;font-weight:600;font-size:13px;white-space:nowrap;opacity:.92}
+@media (orientation:landscape){
+  .stage{padding:2vmin 112px 2vmin 2vmin}
+  .tools{top:50%;left:auto;right:8px;transform:translateY(-50%);flex-direction:column}
+  .tools button{padding:9px 10px;font-size:12px}
+}
+
+.sheet{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:flex-end;justify-content:center;z-index:10}
+.sheet.show{display:flex}
+.box{background:var(--panel);color:var(--fg);width:min(100%,780px);max-height:90%;overflow:auto;border-radius:16px 16px 0 0;
+  padding:18px 18px calc(18px + env(safe-area-inset-bottom,0px))}
+.box h3{margin:0 0 4px;font-size:18px}
+.box .sub{margin:0 0 14px;color:var(--muted);font-size:13px;line-height:1.45}
+.box h4{margin:16px 0 8px;font-size:14px}
+.row{display:flex;flex-wrap:wrap;gap:8px}
+.opt{background:transparent;color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;font-weight:600;text-align:left}
+.opt small{display:block;font-weight:400;color:var(--muted);margin-top:2px}
+.opt.on{background:var(--accent);color:var(--panel);border-color:var(--accent)}
+.opt.on small{color:inherit;opacity:.8}
+.danger{color:#dc2626;border-color:#dc262655}
+.closebar{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.x{background:none;border:1px solid var(--line);color:var(--fg);border-radius:999px;width:34px;height:34px;font-size:18px;flex:none}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:6px 0 14px}
+.stat{border:1px solid var(--line);border-radius:10px;padding:10px}
+.stat b{display:block;font-size:22px;font-variant-numeric:tabular-nums}
+.stat span{font-size:12px;color:var(--muted)}
+@media (max-width:520px){.stats{grid-template-columns:repeat(2,1fr)}}
+.tablewrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:520px}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+th{color:var(--muted);font-weight:600;font-size:12px}
+.tag{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:600}
+.tag.ok{background:#22c55e22;color:#15803d}
+.tag.late{background:#ef444422;color:#dc2626}
+.tag.start{background:#64748b22;color:var(--muted)}
+.ptline{display:flex;justify-content:space-between;align-items:center;gap:1vmin;width:100%;margin-top:.6vmin;background:#0d1622;border:1px solid #243246;border-radius:max(6px,1vmin);
+  color:#e3e8ee;font:inherit;font-size:max(10px,2.1vmin);padding:max(4px,.8vmin) max(8px,1.4vmin);text-align:left}
+.ptline .ptlink{color:#60a5fa;font-weight:600;white-space:nowrap}
+.ptline.none{border-style:dashed;color:#fbbf24}
+.search{display:flex;gap:8px}
+.search input{flex:1;min-width:0;height:44px;border:1px solid var(--line);border-radius:10px;background:transparent;color:var(--fg);font:inherit;font-size:16px;padding:0 12px}
+.exbtn{background:none;border:none;color:#2563eb;font-size:13px;text-decoration:underline;padding:8px 0}
+.pcard{border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:8px}
+.pcard .nm{font-size:18px;font-weight:800}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px 14px;margin:10px 0;font-size:13px}
+.pgrid span{display:block;color:var(--muted);font-size:12px}
+.warn{background:#f59e0b22;color:#b45309;border-radius:8px;padding:8px 10px;font-size:13px;margin-bottom:10px;line-height:1.4}
+.empty{color:var(--muted);font-size:13px;margin:8px 0}
+.risk{color:#dc2626;font-weight:700}
+.ptstep{display:none;flex-direction:column;align-items:center;gap:max(5px,1.2vmin);width:100%}
+.ptstep.show{display:flex}
+.ptacts{display:flex;gap:max(10px,3vmin);align-items:center;justify-content:center}
+.pinfo{display:grid;grid-template-columns:repeat(3,auto);gap:.6vmin 3vmin;font-size:max(10px,2.1vmin);color:#e3e8ee;text-align:left}
+.pinfo span{display:block;color:#8a96a5;font-size:.85em}
+.pinfo .risk{color:#f87171}
+.pwarn{display:none;background:#f59e0b;color:#1a1200;font-weight:600;border-radius:6px;padding:.6vmin 1.4vmin;font-size:max(10px,2vmin)}
+.pwarn.show{display:block}
+.camcard{border-color:#3b82f6}
+.camcard:disabled{opacity:.45;cursor:not-allowed}
+.camwrap{position:relative;height:min(52vmin,170px);aspect-ratio:4/3;max-width:80%;background:#111;border-radius:max(6px,1vmin);overflow:hidden}
+#camVid{width:100%;height:100%;object-fit:cover}
+#camVid.mirror{transform:scaleX(-1)}
+.camframe{position:absolute;inset:18% 26%;border:3px solid #fbbf24;border-radius:8px;box-shadow:0 0 0 999px rgba(0,0,0,.35)}
+.okbtn{background:#15803d;border-color:#22c55e;text-align:center}
+.cardmsg{min-height:1.2em;color:#fbbf24!important;font-weight:600}
+.readers{display:grid;gap:6px;font-size:13px;margin-bottom:8px}
+.readers .opt{display:inline-block;margin-left:6px}
+.regrow{display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid var(--line);padding:8px 0;font-size:13px}
+.regrow small{display:block;color:var(--muted)}
+.regrow .opt{padding:6px 10px}
+.regrow .opt.wait{background:#f59e0b;color:#1a1200;border-color:#f59e0b}
+.toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);transform:translateX(-50%);background:#111827;color:#fff;
+  padding:10px 16px;border-radius:999px;font-size:14px;z-index:20;display:none;max-width:90vw;text-align:center}
+.toast.show{display:block}
+.bedlbl{background:none;border:1px dashed #3a4350;border-radius:6px;color:inherit;font:inherit;padding:1px 6px}
+.bedset{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.stepper{display:flex;align-items:center;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.stp{background:transparent;color:var(--fg);border:none;width:44px;height:44px;font-size:22px;font-weight:600}
+#bedNum{width:64px;height:44px;border:none;border-left:1px solid var(--line);border-right:1px solid var(--line);background:transparent;color:var(--fg);
+  text-align:center;font:inherit;font-size:20px;font-weight:800;-moz-appearance:textfield}
+#bedNum::-webkit-inner-spin-button,#bedNum::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.let{min-width:44px;height:44px;text-align:center;font-size:16px;padding:0 10px}
+.hint{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="edge"></div>
+
+<div class="tools">
+  <button id="bDemo">⚙ Demo</button>
+  <button id="bLog">📋 EHR log</button>
+  <button id="bFull">⛶ Full screen</button>
+</div>
+
+<div class="stage">
+  <div class="device" role="application" aria-label="Smart Nudge bedside device">
+    <div class="side">
+      <div class="lamp" id="lamp" aria-hidden="true"></div>
+      <button class="power" id="power" aria-label="Turn device off" aria-pressed="true"><b>⏻</b>ON / OFF</button>
+    </div>
+
+    <div class="screen">
+      <div class="topline">
+        <button class="bedlbl" id="bedLbl" aria-label="Change bed number">🛏 BED <span id="bedTxt">A12</span> ✎</button>
+        <span id="clock">--:--</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-label="Wi-Fi connected"><path d="M2 8.8a15 15 0 0 1 20 0"/><path d="M5 12.5a10 10 0 0 1 14 0"/><path d="M8.5 16.1a5 5 0 0 1 7 0"/><circle cx="12" cy="19.5" r="1" fill="currentColor"/></svg>
+      </div>
+      <button class="ptline" id="ptLine" aria-label="Patient details, tap to link from EHR"><span id="ptTxt">👤 No patient linked</span><span class="ptlink">EHR ⇄</span></button>
+      <div class="ttl" id="ttl">TIME TO NEXT TURN</div>
+      <div class="timer" id="timerWrap">
+        <span id="timer">02:00</span><span class="sec" id="sec">00</span>
+        <span class="units"><span>HRS</span><span>MINS</span></span>
+      </div>
+      <div class="rule"></div>
+      <div class="status" id="status">RIGHT SIDE</div>
+      <div class="msg" id="msg">Keep patient in this position until next turn</div>
+      <div class="next" id="next"></div>
+      <div class="foot">
+        <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Last turn<br><b id="fLast">--:--</b></span></div>
+        <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4.5-6 8-6s7 2 8 6"/></svg><span>Logged by<br><b id="fStaff">Staff ----</b></span></div>
+        <div class="tap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 8.5a6 6 0 0 1 0 7"/><path d="M9.5 6a10 10 0 0 1 0 12"/><path d="M13 3.5a14 14 0 0 1 0 17"/></svg><span>Tap ID card<br>to log turn</span></div>
+      </div>
+
+      <div class="ov" id="ovScan" role="dialog" aria-label="Scan staff ID">
+        <svg class="nfc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="6" width="11" height="13" rx="2"/><path d="M17 9a4 4 0 0 1 0 6"/><path d="M19.5 6.5a8 8 0 0 1 0 11"/></svg>
+        <h2>Tap ID card to log turn</h2>
+        <p>New position: <b id="scanPos" style="color:#fbbf24">—</b></p>
+        <div class="cards" id="cards"></div>
+        <p class="cardmsg" id="cardMsg"></p>
+        <button class="linkbtn" id="cancelScan">Cancel</button>
+      </div>
+
+      <div class="ov" id="ovBoot" role="status">
+        <div style="font-weight:800;font-size:max(18px,4.4vmin)">Smart Nudge</div>
+        <p>Starting up…</p>
+        <p class="sync" id="bootMsg">Connecting to EHR</p>
+      </div>
+      <div class="offscr" id="offscr"><p>Device off</p><p>Press ⏻ to turn on</p></div>
+
+      <div class="ov" id="ovPt" role="dialog" aria-label="Link patient">
+        <div id="ptStep1" class="ptstep">
+          <h2>Link patient</h2>
+          <p id="ptBedInfo"></p>
+          <p>Scan the patient's wristband to confirm:</p>
+          <div class="cards">
+            <button class="card camcard" id="camScan">📷 Scan wristband QR<span id="camNote">Use camera</span></button>
+            <button class="card" id="wbScan">▮▯▮▮▯▮ Wristband<span id="wbTxt"></span></button>
+          </div>
+          <div class="ptacts"><button class="linkbtn" id="ptUnlink">Unlink patient</button><button class="linkbtn" id="ptCancel1">Cancel</button></div>
+        </div>
+        <div id="ptCam" class="ptstep">
+          <div class="camwrap"><video id="camVid" playsinline muted></video><div class="camframe"></div></div>
+          <p id="camMsg">Starting camera…</p>
+          <div class="ptacts"><button class="linkbtn" id="camFlip">Switch camera</button><button class="linkbtn" id="camCancel">Back</button></div>
+        </div>
+        <div id="ptStep2" class="ptstep">
+          <div class="pwarn" id="ptWarn"></div>
+          <h2 id="ptNm"></h2>
+          <div class="pinfo" id="ptInfo"></div>
+          <div class="ptacts"><button class="card okbtn" id="ptConfirm">✓ Confirm link</button><button class="linkbtn" id="ptCancel2">Cancel</button></div>
+        </div>
+      </div>
+
+      <div class="ov" id="ovOk" role="status">
+        <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M7 12.5l3.2 3.2L17 9"/></svg>
+        <h2 id="okH" style="color:var(--green)">Turn logged successfully</h2>
+        <div class="pos" id="okPos">SUPINE</div>
+        <p id="okMeta">Staff 0123 at 10:15</p>
+        <div class="sync">✓ Synced to EHR</div>
+      </div>
+    </div>
+
+    <div class="btns">
+      <button class="pbtn" data-pos="RIGHT"><span class="ico">←</span>RIGHT</button>
+      <button class="pbtn" data-pos="SUPINE"><span class="ico">🛏</span>SUPINE</button>
+      <button class="pbtn" data-pos="LEFT"><span class="ico">→</span>LEFT</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+
+<!-- Demo controls -->
+<div class="sheet" id="sDemo">
+  <div class="box">
+    <div class="closebar">
+      <div><h3>Demo controls</h3><p class="sub">For presenting only. The real device would not have these.</p></div>
+      <button class="x" data-close aria-label="Close">×</button>
+    </div>
+    <h4>Bed number</h4>
+    <div class="bedset">
+      <div class="row" id="letRow"></div>
+      <div class="stepper">
+        <button class="stp" id="numDn" aria-label="Lower number">−</button>
+        <input id="bedNum" type="number" inputmode="numeric" min="1" max="99" value="12" aria-label="Bed number">
+        <button class="stp" id="numUp" aria-label="Higher number">+</button>
+      </div>
+    </div>
+    <p class="hint" style="margin-top:6px">Preview: <b>BED <span id="bedPrev">A12</span></b></p>
+    <h4>Real staff cards</h4>
+    <p class="hint" style="margin-top:0">Register a real card to a staff ID, then tap it on the device to log a turn.</p>
+    <div class="readers">
+      <div><b>USB card reader:</b> <span id="usbStat">ready – plug in and tap a card</span></div>
+      <div><b>Phone NFC:</b> <span id="nfcStat"></span> <button class="opt" id="nfcOn" style="padding:6px 10px">Turn on NFC reader</button></div>
+    </div>
+    <div id="regList"></div>
+    <h4>Clock speed</h4>
+    <div class="row" id="speedRow">
+      <button class="opt" data-speed="1">Real time<small>2 hours = 2 hours</small></button>
+      <button class="opt" data-speed="60">60× fast<small>1 minute = 1 second</small></button>
+      <button class="opt" data-speed="600">600× fast<small>10 minutes = 1 second</small></button>
+    </div>
+    <h4>Skip ahead in time</h4>
+    <div class="row">
+      <button class="opt" data-jump="104">Go to amber<small>1 min before 105 min</small></button>
+      <button class="opt" data-jump="119.5">Go to red<small>30 s before 120 min</small></button>
+      <button class="opt" data-jump="134.5">Go to blinking red<small>15 min overdue</small></button>
+    </div>
+    <h4>Start again</h4>
+    <div class="row">
+      <button class="opt danger" id="reset">Reset demo<small>Clears the EHR log</small></button>
+    </div>
+    <p class="hint">Green 0–105 min · Amber 105–120 min · Red after 120 min · Red blinks after 15 min overdue. No sound, no vibration.</p>
+  </div>
+</div>
+
+<!-- EHR log -->
+<div class="sheet" id="sLog">
+  <div class="box">
+    <div class="closebar">
+      <div><h3>EHR turning log – Bed <span id="logBed">A12</span></h3><p class="sub"><b id="logPt">No patient linked</b><br>Every turn is saved with time, position and staff ID. This is the audit trail.</p></div>
+      <button class="x" data-close aria-label="Close">×</button>
+    </div>
+    <div class="stats">
+      <div class="stat"><b id="sTurns">0</b><span>Turns logged</span></div>
+      <div class="stat"><b id="sComp">–</b><span>On time (≤ 2 h)</span></div>
+      <div class="stat"><b id="sAvg">–</b><span>Average gap</span></div>
+      <div class="stat"><b id="sLate">0</b><span>Late turns</span></div>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Time</th><th>Position</th><th>Staff</th><th>Gap since last turn</th><th>Result</th></tr></thead>
+        <tbody id="logBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+const INTERVAL=120, AMBER_AT=105, BLINK_AFTER=15;
+const COLORS={green:'#22c55e',amber:'#f59e0b',red:'#ef4444'};
+const POS={RIGHT:'RIGHT SIDE',SUPINE:'SUPINE (ON BACK)',LEFT:'LEFT SIDE'};
+const NEXT={RIGHT:'SUPINE',SUPINE:'LEFT',LEFT:'RIGHT'};
+const STAFF=[{id:'0123',name:'SN Tan'},{id:'0456',name:'SSN Lim'},{id:'0789',name:'EN Kumar'}];
+const $=id=>document.getElementById(id);
+const root=document.documentElement;
+
+let speed=1, sim=Date.now(), lastReal=performance.now();
+let current=null, log=[], pending=null, okT=null;
+
+const pad=n=>String(n).padStart(2,'0');
+const fmt=t=>{const d=new Date(t);return pad(d.getHours())+':'+pad(d.getMinutes())};
+const fmtGap=m=>{if(m==null)return '—';const h=Math.floor(m/60),mm=Math.round(m%60);return h? `${h} h ${mm} min`:`${mm} min`};
+
+function addTurn(pos,staff){
+  const gap=current?(sim-current.t)/60000:null;
+  log.unshift({t:sim,pos,staff,gap,onTime:gap==null?null:gap<=INTERVAL});
+  current={t:sim,pos,staff};
+  renderLog();
+}
+
+function render(){
+  $('clock').textContent=fmt(sim);
+  if(!patient){
+    root.style.setProperty('--state','#64748b');document.body.classList.remove('blinking');
+    $('ttl').textContent='';$('timer').textContent='--:--';$('sec').textContent='';$('timerWrap').classList.remove('over');
+    $('status').textContent='NO PATIENT LINKED';$('msg').textContent='Tap the patient bar above, then scan the wristband.';$('next').textContent='';$('fLast').textContent='--:--';$('fStaff').textContent='Staff ----';
+    return;
+  }
+  const e=(sim-current.t)/60000;
+  const st=e<AMBER_AT?'green':e<=INTERVAL?'amber':'red';
+  root.style.setProperty('--state',COLORS[st]);
+  document.body.classList.toggle('blinking',st==='red'&&e-INTERVAL>=BLINK_AFTER);
+  $('clock').textContent=fmt(sim);
+  let secs, over=e>INTERVAL;
+  if(!over){secs=Math.max(0,Math.ceil((INTERVAL-e)*60));$('ttl').textContent='TIME TO NEXT TURN'}
+  else{secs=Math.floor((e-INTERVAL)*60);$('ttl').textContent='OVERDUE BY'}
+  const h=Math.floor(secs/3600),m=Math.floor(secs%3600/60),s=secs%60;
+  $('timer').textContent=(over?'+':'')+pad(h)+':'+pad(m);
+  $('sec').textContent=pad(s);
+  $('timerWrap').classList.toggle('over',over);
+  const nx=POS[NEXT[current.pos]];
+  if(st==='green'){$('status').textContent=POS[current.pos];$('msg').textContent='Keep patient in this position until next turn';$('next').textContent='Next position: '+nx}
+  else if(st==='amber'){$('status').textContent='TURN DUE SOON';$('msg').textContent='Prepare to reposition the patient soon.';$('next').textContent='Now: '+POS[current.pos]+' · Next: '+nx}
+  else{$('status').textContent='LATE TURN';$('msg').textContent='Reposition patient now.';$('next').textContent='Now: '+POS[current.pos]+' · Next: '+nx}
+  $('fLast').textContent=fmt(current.t);
+  $('fStaff').textContent='Staff '+current.staff.id;
+}
+
+function renderLog(){
+  const turns=log.filter(l=>!l.sys&&l.gap!=null);
+  const ok=turns.filter(l=>l.onTime).length;
+  $('sTurns').textContent=turns.length;
+  $('sComp').textContent=turns.length?Math.round(ok/turns.length*100)+'%':'–';
+  $('sAvg').textContent=turns.length?fmtGap(turns.reduce((a,b)=>a+b.gap,0)/turns.length):'–';
+  $('sLate').textContent=turns.length-ok;
+  $('logBody').innerHTML=log.map(l=>l.sys?`<tr><td>${fmt(l.t)}</td><td colspan="3">${l.sys}</td><td><span class="tag sys">Device</span></td></tr>`:`<tr><td>${fmt(l.t)}</td><td>${POS[l.pos]}</td><td>${l.staff.id} (${l.staff.name})</td><td>${fmtGap(l.gap)}</td><td>${
+    l.gap==null?'<span class="tag start">Start of monitoring</span>':l.onTime?'<span class="tag ok">On time</span>':'<span class="tag late">Late</span>'}</td></tr>`).join('');
+}
+
+function tick(){
+  const now=performance.now();
+  sim+=(now-lastReal)*speed; lastReal=now;
+  render(); requestAnimationFrame(tick);
+}
+
+// Position buttons -> scan overlay
+const btns=[...document.querySelectorAll('.pbtn')];
+btns.forEach(b=>b.addEventListener('click',()=>{
+  if(!patient){openPt();return}
+  if($('ovOk').classList.contains('show'))return;
+  pending=b.dataset.pos;
+  btns.forEach(x=>x.classList.toggle('sel',x===b));
+  $('scanPos').textContent=POS[pending];$('cardMsg').textContent='';
+  $('ovScan').classList.add('show');
+  wake();
+}));
+$('cards').innerHTML=STAFF.map((s,i)=>`<button class="card" data-i="${i}">🪪 Staff ${s.id}<span>${s.name} – tap card</span></button>`).join('');
+function logTurnBy(staff){
+  addTurn(pending,staff);
+  $('ovScan').classList.remove('show');
+  $('okH').textContent='Turn logged successfully';$('okPos').textContent=POS[pending];
+  $('okMeta').textContent=`Staff ${staff.id} at ${fmt(sim)}`;
+  $('ovOk').classList.add('show');
+  btns.forEach(x=>x.classList.remove('sel')); pending=null;
+  clearTimeout(okT); okT=setTimeout(()=>$('ovOk').classList.remove('show'),2200);
+}
+$('cards').addEventListener('click',ev=>{
+  const c=ev.target.closest('.card'); if(!c||!pending)return;
+  logTurnBy(STAFF[+c.dataset.i]);
+});
+$('cancelScan').addEventListener('click',()=>{$('ovScan').classList.remove('show');btns.forEach(x=>x.classList.remove('sel'));pending=null});
+
+// Sheets
+function openSheet(id){$(id).classList.add('show')}
+document.querySelectorAll('.sheet').forEach(s=>s.addEventListener('click',e=>{if(e.target===s||e.target.closest('[data-close]'))s.classList.remove('show')}));
+$('bDemo').onclick=()=>openSheet('sDemo');
+$('bLog').onclick=()=>{renderLog();openSheet('sLog')};
+
+function setSpeed(v){speed=v;document.querySelectorAll('[data-speed]').forEach(b=>b.classList.toggle('on',+b.dataset.speed===v))}
+document.querySelectorAll('[data-speed]').forEach(b=>b.onclick=()=>setSpeed(+b.dataset.speed));
+document.querySelectorAll('[data-jump]').forEach(b=>b.onclick=()=>{
+  const target=current.t+parseFloat(b.dataset.jump)*60000;
+  if(target>sim)sim=target;
+  $('sDemo').classList.remove('show');
+});
+$('reset').onclick=()=>{if(!isOn)setPower(true);log=[];current=null;sim=Date.now();patient=EHR[0];addTurn('RIGHT',STAFF[0]);renderPt();$('sDemo').classList.remove('show')};
+
+// Full screen + landscape + keep screen on
+$('bFull').onclick=async()=>{
+  try{
+    if(!document.fullscreenElement){await root.requestFullscreen();try{await screen.orientation.lock('landscape')}catch(e){}}
+    else{await document.exitFullscreen()}
+  }catch(e){alert('Full screen is blocked here. Tip: open this page in Chrome directly, or just turn the phone sideways.')}
+  wake();
+};
+let lock=null;
+async function wake(){try{if(!lock&&navigator.wakeLock){lock=await navigator.wakeLock.request('screen');lock.addEventListener('release',()=>lock=null)}}catch(e){}}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')wake()});
+
+// Power on / off
+let isOn=true, bootT=null;
+function setPower(on){
+  isOn=on;
+  const b=$('power');
+  b.setAttribute('aria-pressed',on);
+  b.setAttribute('aria-label',on?'Turn device off':'Turn device on');
+  if(!on){
+    clearTimeout(bootT);
+    document.body.classList.remove('booting');
+    stopCam();['ovScan','ovOk','ovBoot','ovPt'].forEach(id=>$(id).classList.remove('show'));
+    btns.forEach(x=>x.classList.remove('sel')); pending=null;
+    document.body.classList.add('off');
+    log.unshift({t:sim,sys:'Device switched OFF'}); renderLog();
+  }else{
+    document.body.classList.remove('off');
+    document.body.classList.add('booting');
+    $('ovBoot').classList.add('show');
+    $('bootMsg').textContent='Connecting to EHR';
+    bootT=setTimeout(()=>{$('bootMsg').textContent='✓ Connected · Timer restored';
+      bootT=setTimeout(()=>{$('ovBoot').classList.remove('show');document.body.classList.remove('booting');
+        log.unshift({t:sim,sys:'Device switched ON – timer restored from last turn'}); renderLog();},700)},1100);
+  }
+}
+$('power').addEventListener('click',()=>setPower(!isOn));
+
+// Mock EHR (example patient only – fictional)
+const EHR=[{ic:'S1234567D',name:'TAN AH KOW',age:78,sex:'Male',ward:'74',bed:'A12',mrn:'MRN 2026-004512',
+  dx:'Stroke, right-side weakness',mob:'Bed-bound',braden:12},
+ {ic:'S7654321B',name:'LIM MEI LING',age:82,sex:'Female',ward:'74',bed:'A13',mrn:'MRN 2026-004533',
+  dx:'Hip fracture, after surgery',mob:'Bed-bound',braden:13}];
+let patient=EHR[0], scanned=null;
+const mask=ic=>ic[0]+'****'+ic.slice(5);
+function renderPt(){
+  const l=$('ptLine');
+  if(patient){$('ptTxt').textContent=`👤 ${patient.name} · ${mask(patient.ic)} · ${patient.age} ${patient.sex[0]}`;l.classList.remove('none');
+    $('logPt').textContent=`Patient: ${patient.name} · IC ${mask(patient.ic)} · ${patient.mrn}`}
+  else{$('ptTxt').textContent='👤 No patient linked – tap to link';l.classList.add('none');$('logPt').textContent='No patient linked'}
+}
+function ptStep(n){$('ptStep1').classList.toggle('show',n===1);$('ptStep2').classList.toggle('show',n===2);$('ptCam').classList.toggle('show',n===3)}
+function closePt(){stopCam();$('ovPt').classList.remove('show');scanned=null}
+function openPt(){
+  ['ovScan','ovOk'].forEach(id=>$(id).classList.remove('show'));
+  const p=EHR.find(x=>x.bed===bedName());
+  $('ptBedInfo').innerHTML=p?`EHR: bed ${bedName()} is assigned to <b>${p.name}</b> (${mask(p.ic)})`:`EHR: no patient assigned to bed ${bedName()}`;
+  const w=EHR[0]; $('wbTxt').textContent=`${w.name} · ${mask(w.ic)} – tap to scan`;
+  $('ptUnlink').style.display=patient?'':'none';
+  ptStep(1); $('ovPt').classList.add('show'); wake();
+}
+function showPatient(p){
+  scanned=p;
+  $('ptNm').textContent=p.name;
+  $('ptInfo').innerHTML=`<div><span>IC</span>${mask(p.ic)}</div><div><span>Age / sex</span>${p.age} / ${p.sex}</div><div><span>EHR bed</span>Ward ${p.ward}, ${p.bed}</div>
+    <div><span>Diagnosis</span>${p.dx}</div><div><span>Mobility</span>${p.mob}</div><div><span>Braden</span><b class="risk">${p.braden} – high risk</b></div>`;
+  const w=$('ptWarn'), bad=p.bed!==bedName();
+  w.textContent=bad?`⚠ EHR bed is ${p.bed}, this device is ${bedName()}. Check patient before linking.`:'';
+  w.classList.toggle('show',bad);
+  $('ptConfirm').textContent=bad?'Link anyway (checked)':'✓ Confirm link';
+  $('ptConfirm').style.background=bad?'#b45309':'';$('ptConfirm').style.borderColor=bad?'#f59e0b':'';
+  ptStep(2);
+}
+$('wbScan').onclick=()=>showPatient(EHR[0]);
+
+// Wristband scanning: phone camera (QR / barcode) or a USB/Bluetooth barcode scanner
+function handleWristband(raw){
+  const m=String(raw).toUpperCase().match(/[STFGM]\d{7}[A-Z]/);
+  const p=m&&EHR.find(x=>x.ic===m[0]);
+  if(!p){
+    if($('ptCam').classList.contains('show'))$('camMsg').textContent='⚠ Wristband not found in EHR. Check the wristband.';
+    else toast('Wristband not found in EHR');
+    return;
+  }
+  stopCam(); if(navigator.vibrate)try{navigator.vibrate(0)}catch(e){}
+  showPatient(p);
+}
+const camOK=!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia)&&window.top===window.self;
+let camStream=null, camTimer=null, camFacing='user', detector=null, camBusy=false, qrCanvas=null;
+if(!camOK){$('camScan').disabled=true;$('camNote').textContent='Camera works on the GitHub version'}
+function stopCam(){
+  clearInterval(camTimer); camTimer=null;
+  if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null}
+  const v=$('camVid'); if(v)v.srcObject=null;
+}
+function loadJsQR(){return new Promise((ok,bad)=>{if(window.jsQR)return ok();const sc=document.createElement('script');
+  sc.src='https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';sc.onload=ok;sc.onerror=bad;document.head.appendChild(sc)})}
+async function startCam(){
+  stopCam(); ptStep(3); $('camMsg').textContent='Starting camera…';
+  try{
+    camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:camFacing,width:{ideal:1280},height:{ideal:960}},audio:false});
+    const v=$('camVid'); v.srcObject=camStream; v.classList.toggle('mirror',camFacing==='user'); await v.play();
+    detector=null;
+    if('BarcodeDetector' in window){
+      try{const sup=await BarcodeDetector.getSupportedFormats();
+        const want=sup.filter(f=>['qr_code','code_128','code_39','data_matrix','pdf417','ean_13'].includes(f));
+        if(want.length)detector=new BarcodeDetector({formats:want});}catch(e){}
+    }
+    if(!detector)await loadJsQR();
+    $('camMsg').textContent='Hold the wristband QR code inside the yellow box';
+    camTimer=setInterval(scanFrame,250); wake();
+  }catch(e){
+    $('camMsg').textContent=e&&e.name==='NotAllowedError'?'Camera permission was blocked. Allow camera for this site in Chrome settings.':'Camera could not start: '+((e&&(e.message||e.name))||'unknown error');
+  }
+}
+async function scanFrame(){
+  const v=$('camVid'); if(camBusy||!camStream||!v.videoWidth)return; camBusy=true;
+  try{
+    let val=null;
+    if(detector){const res=await detector.detect(v); if(res.length)val=res[0].rawValue}
+    else if(window.jsQR){
+      qrCanvas=qrCanvas||document.createElement('canvas');
+      const w=640,h=Math.round(640*v.videoHeight/v.videoWidth); qrCanvas.width=w; qrCanvas.height=h;
+      const cx=qrCanvas.getContext('2d',{willReadFrequently:true}); cx.drawImage(v,0,0,w,h);
+      const res=jsQR(cx.getImageData(0,0,w,h).data,w,h); if(res)val=res.data;
+    }
+    if(val)handleWristband(val);
+  }catch(e){}
+  camBusy=false;
+}
+$('camScan').onclick=()=>{if(camOK)startCam()};
+$('camFlip').onclick=()=>{camFacing=camFacing==='user'?'environment':'user';startCam()};
+$('camCancel').onclick=()=>{stopCam();ptStep(1)};
+$('ptConfirm').onclick=()=>{
+  const p=scanned; if(!p)return;
+  const keepPos=current?current.pos:'RIGHT', keepStaff=current?current.staff:STAFF[0];
+  patient=p; log=[]; current=null; addTurn(keepPos,keepStaff);
+  log.unshift({t:sim,sys:`Patient linked by wristband scan: ${p.name} (${mask(p.ic)}) to bed ${bedName()}`}); renderLog(); renderPt();
+  closePt();
+  $('okH').textContent='Patient linked';$('okPos').textContent=p.name;$('okMeta').textContent=`IC ${mask(p.ic)} · Bed ${bedName()}`;
+  $('ovOk').classList.add('show'); clearTimeout(okT); okT=setTimeout(()=>$('ovOk').classList.remove('show'),2200);
+};
+$('ptUnlink').onclick=()=>{if(patient){log.unshift({t:sim,sys:`Patient unlinked: ${patient.name} (${mask(patient.ic)})`});patient=null;renderPt();renderLog()}closePt()};
+$('ptCancel1').onclick=closePt; $('ptCancel2').onclick=closePt;
+$('ptLine').addEventListener('click',()=>{if(isOn)openPt()});
+
+// Real cards: USB reader (types like a keyboard) or phone NFC (Web NFC)
+let cardMap={}, regFor=null;
+try{cardMap=JSON.parse(localStorage.getItem('sn_cards')||'{}')}catch(e){}
+function saveCards(){try{localStorage.setItem('sn_cards',JSON.stringify(cardMap))}catch(e){}}
+function toast(t){const el=$('toast');el.textContent=t;el.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove('show'),2600)}
+const shortUid=u=>u.length>8?'…'+u.slice(-6):u;
+function renderReg(){
+  $('regList').innerHTML=STAFF.map((st,i)=>{
+    const uid=Object.keys(cardMap).find(k=>cardMap[k]===st.id);
+    const waiting=regFor===i;
+    return `<div class="regrow"><div><b>Staff ${st.id}</b> (${st.name})<small>${uid?'Card registered '+shortUid(uid):'No card yet – uses on-screen button'}</small></div>
+      <div>${uid?`<button class="opt" data-unreg="${i}">Remove</button>`:''}
+      <button class="opt ${waiting?'wait':''}" data-reg="${i}">${waiting?'Tap card now…':(uid?'Change card':'Register card')}</button></div></div>`}).join('');
+}
+$('regList').addEventListener('click',e=>{
+  const a=e.target.closest('[data-reg]'), d=e.target.closest('[data-unreg]');
+  if(a){regFor=regFor===+a.dataset.reg?null:+a.dataset.reg;renderReg()}
+  if(d){const id=STAFF[+d.dataset.unreg].id;for(const k in cardMap)if(cardMap[k]===id)delete cardMap[k];saveCards();renderReg()}
+});
+function handleCard(uid){
+  uid=String(uid).trim().toUpperCase(); if(!uid)return;
+  if(regFor!==null){
+    const st=STAFF[regFor];
+    for(const k in cardMap)if(cardMap[k]===st.id)delete cardMap[k];
+    cardMap[uid]=st.id; saveCards(); regFor=null; renderReg();
+    toast(`Card registered to Staff ${st.id}`); return;
+  }
+  if(!isOn||document.body.classList.contains('booting'))return;
+  if($('ovPt').classList.contains('show')&&!$('ptStep2').classList.contains('show')){handleWristband(uid);return}
+  const sm=uid.match(/STAFF[-\s]?(\d{4})/);
+  const st=STAFF.find(x=>x.id===(sm?sm[1]:cardMap[uid]));
+  if(!$('ovScan').classList.contains('show')||!pending){
+    toast(st?`Hi ${st.name} – choose the new position first, then tap your card`:'Card not recognised');return;
+  }
+  if(!st){$('cardMsg').textContent='Card not recognised. Register it in ⚙ Demo first.';return}
+  logTurnBy(st);
+}
+// USB / Bluetooth card readers act like a keyboard: they type the card number very fast, then Enter
+let kb='', kbLast=0;
+document.addEventListener('keydown',e=>{
+  if(e.target.matches&&e.target.matches('input,textarea'))return;
+  const now=performance.now();
+  if(now-kbLast>80)kb='';
+  kbLast=now;
+  if(e.key==='Enter'){if(kb.length>=4){e.preventDefault();handleCard(kb)}kb='';return}
+  if(e.key.length===1&&/[0-9a-zA-Z]/.test(e.key))kb+=e.key;
+});
+// Phone NFC (Chrome on Android, only when the page is opened directly – not inside the Claude link)
+function nfcState(t){$('nfcStat').textContent=t}
+if(!('NDEFReader' in window)){nfcState('not available here (open the page directly in Chrome on Android)');$('nfcOn').style.display='none'}
+else if(window.top!==window.self){nfcState('blocked inside the Claude link – open the hosted copy');$('nfcOn').style.display='none'}
+else nfcState('off');
+$('nfcOn').onclick=async()=>{
+  try{
+    const r=new NDEFReader(); await r.scan();
+    r.onreading=e=>{
+      let txt='';
+      try{for(const rec of (e.message&&e.message.records)||[]){if(rec.recordType==='text'){txt=new TextDecoder(rec.encoding||'utf-8').decode(rec.data).trim();if(txt)break}}}catch(_){}
+      handleCard(txt||(e.serialNumber||'').replace(/:/g,''));
+    };
+    r.onreadingerror=()=>toast('Card could not be read – try an NFC sticker card');
+    nfcState('ON – tap card on back of phone'); $('nfcOn').style.display='none';
+  }catch(err){nfcState('could not start: '+(err.message||err.name))}
+};
+renderReg();
+
+// Bed number (number 1-99 + letter A-H, or none)
+const LETTERS=['A','B','C','D','E','F','G','H',''];
+let bedNum=12, bedLet='A';
+function bedName(){return bedLet+bedNum}
+function applyBed(){
+  bedNum=Math.min(99,Math.max(1,parseInt($('bedNum').value)||1));
+  $('bedNum').value=bedNum;
+  const n=bedName();
+  ['bedTxt','logBed','bedPrev'].forEach(id=>$(id).textContent=n);
+  document.title='Smart Nudge System – Bed '+n;
+  document.querySelectorAll('.let').forEach(b=>b.classList.toggle('on',b.dataset.l===bedLet));
+}
+$('letRow').innerHTML=LETTERS.map(l=>`<button class="opt let" data-l="${l}">${l||'None'}</button>`).join('');
+$('letRow').addEventListener('click',e=>{const b=e.target.closest('.let');if(b){bedLet=b.dataset.l;applyBed()}});
+$('numUp').onclick=()=>{$('bedNum').value=bedNum+1;applyBed()};
+$('numDn').onclick=()=>{$('bedNum').value=bedNum-1;applyBed()};
+$('bedNum').addEventListener('change',applyBed);
+$('bedLbl').addEventListener('click',()=>{if(isOn)openSheet('sDemo')});
+applyBed();
+renderPt();
+
+// Start
+setSpeed(1);
+addTurn('RIGHT',STAFF[0]);
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
