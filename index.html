@@ -44,7 +44,7 @@ button:focus-visible{outline:3px solid #60a5fa;outline-offset:2px}
 .power{border-radius:max(8px,1.6vmin);border:1px solid #cfccc5;background:#f1f0ec;padding:max(6px,1.4vmin) 0;
   display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:600;font-size:max(9px,1.8vmin);color:#333;gap:.4vmin;
   box-shadow:0 max(3px,.5vmin) 0 #cfccc5}
-.power b{font-size:max(16px,3.4vmin);font-weight:400;line-height:1}
+.power .pwr{width:max(18px,3.6vmin);height:max(18px,3.6vmin);color:#16a34a}
 
 .screen{background:#000;border-radius:max(10px,2.4vmin);color:#fff;padding:max(8px,2vmin) max(10px,3vmin);display:flex;flex-direction:column;position:relative;overflow:hidden;min-height:0}
 .topline{display:flex;justify-content:space-between;align-items:center;font-size:max(10px,2.1vmin);color:#cfd6df}
@@ -61,7 +61,11 @@ button:focus-visible{outline:3px solid #60a5fa;outline-offset:2px}
 .foot div{display:flex;gap:.8vmin;align-items:center;line-height:1.25}
 .foot div+div{border-left:1px solid #2a3038;padding-left:1vmin}
 .foot svg{flex:none;width:max(14px,3vmin);height:max(14px,3vmin)}
-.foot .tap{color:#60a5fa}
+.foot .tap{color:#60a5fa;background:none;border:none;font:inherit;text-align:left;display:flex;gap:.8vmin;align-items:center;padding:0;border-left:1px solid #2a3038;padding-left:1vmin;cursor:pointer}
+.foot .tap:active{opacity:.6}
+.await .pbtn{animation:glow 1.1s ease-in-out infinite}
+@keyframes glow{50%{box-shadow:0 0 0 max(3px,.6vmin) #60a5fa}}
+@media (prefers-reduced-motion:reduce){.await .pbtn{animation:none;box-shadow:0 0 0 max(3px,.6vmin) #60a5fa}}
 
 .btns{grid-column:2;display:grid;grid-template-columns:repeat(3,1fr);gap:max(8px,2vmin)}
 .pbtn{background:#f8f7f4;border:1px solid #cfccc5;border-radius:max(8px,1.6vmin);padding:max(6px,1.4vmin) 0;font-weight:600;font-size:max(11px,2.2vmin);color:#222;
@@ -86,8 +90,7 @@ button:focus-visible{outline:3px solid #60a5fa;outline-offset:2px}
 
 .power{border:1px solid #c9c7c1;cursor:pointer;transition:background .2s}
 .power:active{background:#dddbd5}
-.power b{color:#16a34a}
-.off .power b{color:#888}
+.off .power .pwr{color:#888}
 .offscr{position:absolute;inset:0;background:#000;display:none;flex-direction:column;align-items:center;justify-content:center;gap:1vmin;z-index:3}
 .offscr p{margin:0;color:#3a3f46;font-size:max(11px,2.2vmin)}
 .off .offscr{display:flex}
@@ -201,7 +204,7 @@ th{color:var(--muted);font-weight:600;font-size:12px}
   <div class="device" role="application" aria-label="Smart Nudge bedside device">
     <div class="side">
       <div class="lamp" id="lamp" aria-hidden="true"></div>
-      <button class="power" id="power" aria-label="Turn device off" aria-pressed="true"><b>⏻</b>ON / OFF</button>
+      <button class="power" id="power" aria-label="Turn device off" aria-pressed="true"><svg class="pwr" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 3v9"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/></svg>ON / OFF</button>
     </div>
 
     <div class="screen">
@@ -223,16 +226,23 @@ th{color:var(--muted);font-weight:600;font-size:12px}
       <div class="foot">
         <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Last turn<br><b id="fLast">--:--</b></span></div>
         <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4.5-6 8-6s7 2 8 6"/></svg><span>Logged by<br><b id="fStaff">Staff ----</b></span></div>
-        <div class="tap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 8.5a6 6 0 0 1 0 7"/><path d="M9.5 6a10 10 0 0 1 0 12"/><path d="M13 3.5a14 14 0 0 1 0 17"/></svg><span>Tap ID card<br>to log turn</span></div>
+        <button class="tap" id="tapCard" aria-label="Tap ID card"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 8.5a6 6 0 0 1 0 7"/><path d="M9.5 6a10 10 0 0 1 0 12"/><path d="M13 3.5a14 14 0 0 1 0 17"/></svg><span>Tap ID card<br>to log turn</span></button>
       </div>
 
       <div class="ov" id="ovScan" role="dialog" aria-label="Scan staff ID">
         <svg class="nfc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="6" width="11" height="13" rx="2"/><path d="M17 9a4 4 0 0 1 0 6"/><path d="M19.5 6.5a8 8 0 0 1 0 11"/></svg>
-        <h2>Tap ID card to log turn</h2>
-        <p>New position: <b id="scanPos" style="color:#fbbf24">—</b></p>
+        <h2 id="scanH">Tap ID card to log turn</h2>
+        <p id="scanP">New position: <b id="scanPos" style="color:#fbbf24">—</b></p>
         <div class="cards" id="cards"></div>
         <p class="cardmsg" id="cardMsg"></p>
         <button class="linkbtn" id="cancelScan">Cancel</button>
+      </div>
+
+      <div class="ov" id="ovStaff" role="status">
+        <svg class="check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M7 12.5l3.2 3.2L17 9"/></svg>
+        <h2 id="staffH">Staff verified</h2>
+        <p style="font-size:max(13px,2.8vmin);color:#fff">Now press the <b style="color:#60a5fa">new position</b> below ↓</p>
+        <button class="linkbtn" id="cancelStaff">Cancel</button>
       </div>
 
       <div class="ov" id="ovBoot" role="status">
@@ -421,10 +431,32 @@ function tick(){
 
 // Position buttons -> scan overlay
 const btns=[...document.querySelectorAll('.pbtn')];
+let pendingStaff=null, staffT=null;
+function clearStaff(){pendingStaff=null;clearTimeout(staffT);$('ovStaff').classList.remove('show');document.body.classList.remove('await')}
+function staffFirst(st){
+  if(!isOn)return;
+  if(!patient){openPt();return}
+  pending=null; btns.forEach(x=>x.classList.remove('sel')); $('ovScan').classList.remove('show');
+  pendingStaff=st; $('staffH').textContent=`Staff ${st.id} (${st.name}) verified`;
+  $('ovStaff').classList.add('show'); document.body.classList.add('await');
+  clearTimeout(staffT); staffT=setTimeout(clearStaff,30000); wake();
+}
+function openCardFirst(){
+  if(!isOn||document.body.classList.contains('booting'))return;
+  if(!patient){openPt();return}
+  clearStaff(); pending=null; btns.forEach(x=>x.classList.remove('sel'));
+  $('scanH').textContent='Tap your ID card'; $('scanP').innerHTML='Then choose the new position';
+  $('cardMsg').textContent=''; $('ovScan').classList.add('show'); startNFC(); wake();
+}
+$('tapCard').addEventListener('click',openCardFirst);
+$('cancelStaff').addEventListener('click',clearStaff);
 btns.forEach(b=>b.addEventListener('click',()=>{
   if(!patient){openPt();return}
   if($('ovOk').classList.contains('show'))return;
+  startNFC();
+  if(pendingStaff){const st=pendingStaff; clearStaff(); pending=b.dataset.pos; logTurnBy(st); return}
   pending=b.dataset.pos;
+  $('scanH').textContent='Tap ID card to log turn'; $('scanP').innerHTML='New position: <b id="scanPos" style="color:#fbbf24">—</b>';
   btns.forEach(x=>x.classList.toggle('sel',x===b));
   $('scanPos').textContent=POS[pending];$('cardMsg').textContent='';
   $('ovScan').classList.add('show');
@@ -441,10 +473,11 @@ function logTurnBy(staff){
   clearTimeout(okT); okT=setTimeout(()=>$('ovOk').classList.remove('show'),2200);
 }
 $('cards').addEventListener('click',ev=>{
-  const c=ev.target.closest('.card'); if(!c||!pending)return;
+  const c=ev.target.closest('.card'); if(!c)return;
+  if(!pending){staffFirst(STAFF[+c.dataset.i]);return}
   logTurnBy(STAFF[+c.dataset.i]);
 });
-$('cancelScan').addEventListener('click',()=>{$('ovScan').classList.remove('show');btns.forEach(x=>x.classList.remove('sel'));pending=null});
+$('cancelScan').addEventListener('click',()=>{$('ovScan').classList.remove('show');btns.forEach(x=>x.classList.remove('sel'));pending=null;clearStaff()});
 
 // Sheets
 function openSheet(id){$(id).classList.add('show')}
@@ -483,7 +516,7 @@ function setPower(on){
   if(!on){
     clearTimeout(bootT);
     document.body.classList.remove('booting');
-    stopCam();['ovScan','ovOk','ovBoot','ovPt'].forEach(id=>$(id).classList.remove('show'));
+    stopCam();clearStaff();['ovScan','ovOk','ovBoot','ovPt','ovStaff'].forEach(id=>$(id).classList.remove('show'));
     btns.forEach(x=>x.classList.remove('sel')); pending=null;
     document.body.classList.add('off');
     log.unshift({t:sim,sys:'Device switched OFF'}); renderLog();
@@ -639,7 +672,9 @@ function handleCard(uid){
   const sm=uid.match(/STAFF[-\s]?(\d{4})/);
   const st=STAFF.find(x=>x.id===(sm?sm[1]:cardMap[uid]));
   if(!$('ovScan').classList.contains('show')||!pending){
-    toast(st?`Hi ${st.name} – choose the new position first, then tap your card`:'Card not recognised');return;
+    if(st){staffFirst(st);return}
+    if($('ovScan').classList.contains('show')){$('cardMsg').textContent='Card not recognised. Register it in ⚙ Demo first.';return}
+    toast('Card not recognised');return;
   }
   if(!st){$('cardMsg').textContent='Card not recognised. Register it in ⚙ Demo first.';return}
   logTurnBy(st);
@@ -659,7 +694,10 @@ function nfcState(t){$('nfcStat').textContent=t}
 if(!('NDEFReader' in window)){nfcState('not available here (open the page directly in Chrome on Android)');$('nfcOn').style.display='none'}
 else if(window.top!==window.self){nfcState('blocked inside the Claude link – open the hosted copy');$('nfcOn').style.display='none'}
 else nfcState('off');
-$('nfcOn').onclick=async()=>{
+let nfcStarted=false;
+async function startNFC(){
+  if(nfcStarted||!('NDEFReader' in window)||window.top!==window.self)return;
+  nfcStarted=true;
   try{
     const r=new NDEFReader(); await r.scan();
     r.onreading=e=>{
@@ -669,8 +707,9 @@ $('nfcOn').onclick=async()=>{
     };
     r.onreadingerror=()=>toast('Card could not be read – try an NFC sticker card');
     nfcState('ON – tap card on back of phone'); $('nfcOn').style.display='none';
-  }catch(err){nfcState('could not start: '+(err.message||err.name))}
-};
+  }catch(err){nfcStarted=false;nfcState('could not start: '+(err.message||err.name))}
+}
+$('nfcOn').onclick=startNFC;
 renderReg();
 
 // Bed number (number 1-99 + letter A-H, or none)
