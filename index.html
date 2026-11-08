@@ -328,6 +328,8 @@ th{color:var(--muted);font-weight:600;font-size:12px}
       <div><button class="opt" data-bt="0,255,0" style="padding:6px 10px;margin-left:0">Test green</button>
         <button class="opt" data-bt="255,90,0" style="padding:6px 10px">Test amber</button>
         <button class="opt" data-bt="255,0,0" style="padding:6px 10px">Test red</button></div>
+      <div><b>Colour order:</b> wrong colour? Tap each one until <b>Test green</b> shows green and <b>Test red</b> shows red.</div>
+      <div id="ordRow"></div>
     </div>
     <h4>Clock speed</h4>
     <div class="row" id="speedRow">
@@ -750,15 +752,22 @@ const BLE_SVCS=['fff0','ffd5','ffd0','ffe0','ffe5','ae00','fee7'].map(U);
 const BLE_TRY=[['fff0','fff3','elk'],['ffe0','ffe1','elk'],['ffd5','ffd9','tri'],['ffe5','ffe9','tri'],['ae00','ae01','elk']];
 let bleDev=null, bleChr=null, bleProto=null, bleVar=0, bleLast='', bleBusy=false, bleTest=null, bleTestT=null;
 function bleState(t){$('bleStat').textContent=t}
+const ORDS=['RGB','RBG','GRB','GBR','BRG','BGR'];
+let bleOrdNow='RGB'; try{bleOrdNow=localStorage.getItem('sn_ord')||'RGB'}catch(e){}
+function bleOrd(r,g,b){const v={R:r,G:g,B:b};return[...bleOrdNow].map(k=>v[k])}
+function renderOrd(){$('ordRow').innerHTML=ORDS.map(o=>`<button class="opt${o===bleOrdNow?' on':''}" data-ord="${o}" style="padding:6px 10px;margin:4px 6px 0 0">${o}</button>`).join('')}
+renderOrd();
+$('ordRow').addEventListener('click',e=>{const t=e.target.closest('[data-ord]');if(!t)return;bleOrdNow=t.dataset.ord;try{localStorage.setItem('sn_ord',bleOrdNow)}catch(x){}renderOrd();bleLast='';bleTest='0,255,0';clearTimeout(bleTestT);bleTestT=setTimeout(()=>{bleTest=null},3000)});
 function bleCmd(kind,r,g,b){
   if(bleProto==='tri'){
     if(kind==='on')return[0xcc,0x23,0x33]; if(kind==='off')return[0xcc,0x24,0x33];
-    return[0x56,r,g,b,0x00,0xf0,0xaa];
+    [r,g,b]=bleOrd(r,g,b); return[0x56,r,g,b,0x00,0xf0,0xaa];
   }
   const v=bleVar%2;
   if(kind==='on')return v?[0x7e,0x04,0x04,0xf0,0x00,0x01,0xff,0x00,0xef]:[0x7e,0x00,0x04,0xf0,0x00,0x01,0xff,0x00,0xef];
   if(kind==='off')return v?[0x7e,0x04,0x04,0x00,0x00,0x00,0xff,0x00,0xef]:[0x7e,0x00,0x04,0x00,0x00,0x00,0xff,0x00,0xef];
   if(kind==='bri')return[0x7e,0x00,0x01,0x64,0x00,0x00,0x00,0x00,0xef];
+  [r,g,b]=bleOrd(r,g,b);
   return v?[0x7e,0x07,0x05,0x03,r,g,b,0x10,0xef]:[0x7e,0x00,0x05,0x03,r,g,b,0x00,0xef];
 }
 async function bleWrite(arr){
