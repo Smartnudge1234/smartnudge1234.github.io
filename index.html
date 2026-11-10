@@ -253,10 +253,18 @@ th{color:var(--muted);font-weight:600;font-size:12px}
       <div class="offscr" id="offscr"><p>Device off</p><p>Press ⏻ to turn on</p></div>
 
       <div class="ov" id="ovPt" role="dialog" aria-label="Link patient">
+        <div id="ptStep0" class="ptstep">
+          <svg class="nfc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="6" width="11" height="13" rx="2"/><path d="M17 9a4 4 0 0 1 0 6"/><path d="M19.5 6.5a8 8 0 0 1 0 11"/></svg>
+          <h2>Link patient · Step 1 of 2</h2>
+          <p>Tap your <b style="color:#fff">staff ID card</b> first, so the EHR knows who registered this patient.</p>
+          <div class="cards" id="lsCards"></div>
+          <p class="cardmsg" id="lsMsg"></p>
+          <div class="ptacts"><button class="linkbtn" id="ptCancel0">Cancel</button></div>
+        </div>
         <div id="ptStep1" class="ptstep">
-          <h2>Link patient</h2>
+          <h2>Step 2 of 2 · Scan wristband</h2>
+          <p id="lsWho" style="color:#86efac"></p>
           <p id="ptBedInfo"></p>
-          <p>Scan the patient's wristband to confirm:</p>
           <div class="cards">
             <button class="card camcard" id="camScan">📷 Scan wristband QR<span id="camNote">Use camera</span></button>
             <button class="card" id="wbScan">▮▯▮▮▯▮ Wristband<span id="wbTxt"></span></button>
@@ -557,15 +565,19 @@ function renderPt(){
     $('logPt').textContent=`Patient: ${patient.name} · IC ${mask(patient.ic)} · ${patient.mrn}`}
   else{$('ptTxt').textContent='👤 No patient linked – tap to link';l.classList.add('none');$('logPt').textContent='No patient linked'}
 }
-function ptStep(n){$('ptStep1').classList.toggle('show',n===1);$('ptStep2').classList.toggle('show',n===2);$('ptCam').classList.toggle('show',n===3)}
-function closePt(){stopCam();$('ovPt').classList.remove('show');scanned=null}
+function ptStep(n){$('ptStep0').classList.toggle('show',n===0);$('ptStep1').classList.toggle('show',n===1);$('ptStep2').classList.toggle('show',n===2);$('ptCam').classList.toggle('show',n===3)}
+let linkStaff=null;
+function closePt(){stopCam();$('ovPt').classList.remove('show');scanned=null;linkStaff=null}
+function setLinkStaff(st){linkStaff=st;$('lsWho').textContent=`✓ Staff ${st.id} (${st.name}) verified`;ptStep(1)}
+$('lsCards').innerHTML=STAFF.map((s,i)=>`<button class="card" data-ls="${i}">🪪 Staff ${s.id}<span>${s.name} – tap card</span></button>`).join('');
+$('lsCards').addEventListener('click',e=>{const b=e.target.closest('[data-ls]');if(b)setLinkStaff(STAFF[+b.dataset.ls])});
 function openPt(){
   ['ovScan','ovOk'].forEach(id=>$(id).classList.remove('show'));
   const p=EHR.find(x=>x.bed===bedName());
   $('ptBedInfo').innerHTML=p?`EHR: bed ${bedName()} is assigned to <b>${p.name}</b> (${mask(p.ic)})`:`EHR: no patient assigned to bed ${bedName()}`;
   const w=EHR[0]; $('wbTxt').textContent=`${w.name} · ${mask(w.ic)} – tap to scan`;
   $('ptUnlink').style.display=patient?'':'none';
-  ptStep(1); $('ovPt').classList.add('show'); wake();
+  linkStaff=null; $('lsMsg').textContent=''; ptStep(0); $('ovPt').classList.add('show'); startNFC(); wake();
 }
 function showPatient(p){
   scanned=p;
@@ -642,14 +654,15 @@ $('camCancel').onclick=()=>{stopCam();ptStep(1)};
 $('ptConfirm').onclick=()=>{
   const p=scanned; if(!p)return;
   const keepPos=current?current.pos:'RIGHT', keepStaff=current?current.staff:STAFF[0];
-  patient=p; log=[]; current=null; addTurn(keepPos,keepStaff);
-  log.unshift({t:sim,sys:`Patient linked by wristband scan: ${p.name} (${mask(p.ic)}) to bed ${bedName()}`}); renderLog(); renderPt();
+  const by=linkStaff||keepStaff;
+  patient=p; log=[]; current=null; addTurn(keepPos,by);
+  log.unshift({t:sim,sys:`Patient registered by Staff ${by.id} (${by.name}): ${p.name} (${mask(p.ic)}) linked to bed ${bedName()} by wristband scan`}); renderLog(); renderPt();
   closePt();
-  $('okH').textContent='Patient linked';$('okPos').textContent=p.name;$('okMeta').textContent=`IC ${mask(p.ic)} · Bed ${bedName()}`;
+  $('okH').textContent='Patient linked';$('okPos').textContent=p.name;$('okMeta').textContent=`IC ${mask(p.ic)} · Bed ${bedName()} · by Staff ${by.id}`;
   $('ovOk').classList.add('show'); clearTimeout(okT); okT=setTimeout(()=>$('ovOk').classList.remove('show'),2200);
 };
-$('ptUnlink').onclick=()=>{if(patient){log.unshift({t:sim,sys:`Patient unlinked: ${patient.name} (${mask(patient.ic)})`});patient=null;renderPt();renderLog()}closePt()};
-$('ptCancel1').onclick=closePt; $('ptCancel2').onclick=closePt;
+$('ptUnlink').onclick=()=>{if(patient){log.unshift({t:sim,sys:`Patient unlinked by Staff ${linkStaff?linkStaff.id:'----'}: ${patient.name} (${mask(patient.ic)})`});patient=null;renderPt();renderLog()}closePt()};
+$('ptCancel0').onclick=closePt; $('ptCancel1').onclick=closePt; $('ptCancel2').onclick=closePt;
 $('ptLine').addEventListener('click',()=>{if(isOn)openPt()});
 
 // Real cards: USB reader (types like a keyboard) or phone NFC (Web NFC)
@@ -680,9 +693,13 @@ function handleCard(uid){
     toast(`Card registered to Staff ${st.id}`); return;
   }
   if(!isOn||document.body.classList.contains('booting'))return;
-  if($('ovPt').classList.contains('show')&&!$('ptStep2').classList.contains('show')){handleWristband(uid);return}
   const sm=uid.match(/STAFF[-\s]?(\d{4})/);
   const st=STAFF.find(x=>x.id===(sm?sm[1]:cardMap[uid]));
+  if($('ovPt').classList.contains('show')&&$('ptStep0').classList.contains('show')){
+    if(st){setLinkStaff(st);return}
+    $('lsMsg').textContent=/[STFGM]\d{7}[A-Z]/.test(uid)?'That is a patient wristband. Tap your STAFF card first.':'Card not recognised. Register it in ⚙ Demo first.';return;
+  }
+  if($('ovPt').classList.contains('show')&&!$('ptStep2').classList.contains('show')){handleWristband(uid);return}
   if(!$('ovScan').classList.contains('show')||!pending){
     if(st){staffFirst(st);return}
     if($('ovScan').classList.contains('show')){$('cardMsg').textContent='Card not recognised. Register it in ⚙ Demo first.';return}
