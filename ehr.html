@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ward 74 Turning Board</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0d1b2e;--panel:#14263f;--panel2:#1a3050;--line:#2a4166;--fg:#eef3fa;--muted:#9fb0c6;
+  --green:#22c55e;--amber:#f59e0b;--red:#ef4444;--blue:#60a5fa}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--fg);font-family:Inter,system-ui,"Segoe UI",Roboto,sans-serif;display:flex;flex-direction:column;min-height:100%}
+header{display:flex;align-items:center;gap:16px;padding:14px 24px;background:#0a1626;border-bottom:1px solid var(--line);flex-wrap:wrap}
+header h1{margin:0;font-size:clamp(18px,2.2vw,28px);font-weight:800}
+header h1 b{color:var(--green)}
+.demo{font-size:12px;font-weight:700;letter-spacing:.06em;color:#fde68a;border:1px solid #a16207;background:#422006;border-radius:999px;padding:4px 10px}
+.sp{flex:1}
+.live{display:flex;align-items:center;gap:8px;font-weight:600;font-size:15px;color:var(--muted)}
+.dot{width:12px;height:12px;border-radius:50%;background:#64748b}
+.live.on .dot{background:var(--green);box-shadow:0 0 10px var(--green)}
+.live.on{color:var(--fg)}
+.live.bad .dot{background:var(--red)}
+.clock{font-size:clamp(18px,2vw,26px);font-weight:800;font-variant-numeric:tabular-nums}
+button.fs{background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:8px 12px;font:600 14px Inter,sans-serif;cursor:pointer}
+main{flex:1;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:20px;padding:20px 24px;min-height:0}
+@media (max-width:900px){main{grid-template-columns:1fr}}
+h2{margin:0 0 12px;font-size:15px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
+.beds{display:grid;gap:16px;align-content:start}
+.bed{position:relative;background:var(--panel);border-radius:18px;padding:20px 22px 20px 34px;border:1px solid var(--line);overflow:hidden}
+.bed::before{content:"";position:absolute;left:0;top:0;bottom:0;width:14px;background:var(--st,#64748b)}
+.bed.blink::before,.bed.blink .cd{animation:bl 1s steps(1,end) infinite}
+@keyframes bl{50%{opacity:.25}}
+.bt{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+.bt .no{font-size:clamp(26px,3vw,40px);font-weight:800}
+.bt .nm{font-size:clamp(18px,2vw,26px);font-weight:700}
+.bt .ic{color:var(--muted);font-size:16px}
+.meta{color:var(--muted);font-size:15px;margin-top:4px}
+.meta b{color:#fca5a5}
+.row{display:grid;grid-template-columns:auto 1fr;gap:24px;align-items:center;margin-top:16px}
+.cdw{text-align:center;min-width:220px}
+.cdl{font-size:13px;letter-spacing:.08em;color:var(--muted);font-weight:700}
+.cd{font-size:clamp(48px,6vw,84px);font-weight:800;line-height:1;font-variant-numeric:tabular-nums;color:var(--st)}
+.stx{font-weight:800;font-size:20px;color:var(--st);margin-top:4px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font-size:17px}
+.kv span{color:var(--muted)}
+.off{opacity:.55}
+.empty{background:var(--panel);border:1px dashed var(--line);border-radius:18px;padding:30px;color:var(--muted);font-size:17px;line-height:1.6}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;text-align:center}
+.stat b{display:block;font-size:clamp(20px,2.2vw,30px);font-weight:800;white-space:nowrap}
+.stat span{color:var(--muted);font-size:13px}
+.logw{background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:auto;max-height:calc(100vh - 290px)}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th{position:sticky;top:0;background:var(--panel2);text-align:left;padding:10px 12px;font-size:12px;letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
+td:nth-child(1),td:nth-child(2),td:nth-child(5){white-space:nowrap}
+td{padding:10px 12px;border-top:1px solid var(--line);vertical-align:top}
+.tag{display:inline-block;white-space:nowrap;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700}
+.tag.ok{background:#14532d;color:#86efac}.tag.late{background:#7f1d1d;color:#fca5a5}.tag.start{background:#1e3a8a;color:#bfdbfe}.tag.sys{background:#334155;color:#cbd5e1}
+footer{padding:10px 24px;color:var(--muted);font-size:12px;border-top:1px solid var(--line)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Ward 74 · <b>Smart Nudge</b> turning board</h1>
+  <span class="demo">DEMO EHR · FICTIONAL PATIENTS</span>
+  <span class="sp"></span>
+  <span class="live" id="live"><span class="dot"></span><span id="liveTxt">Connecting…</span></span>
+  <span class="clock" id="clock">--:--</span>
+  <button class="fs" id="fs">⛶ Full screen</button>
+</header>
+<main>
+  <section>
+    <h2>Beds with a Smart Nudge device</h2>
+    <div class="beds" id="beds">
+      <div class="empty">Waiting for the bedside device…<br>Open <b>smartnudge1234.github.io</b> on the device and do any action (log a turn, or press ⚙ Demo → <b>Send now</b>).</div>
+    </div>
+  </section>
+  <section>
+    <h2>EHR turning log (audit trail)</h2>
+    <div class="stats">
+      <div class="stat"><b id="sT">0</b><span>Turns logged</span></div>
+      <div class="stat"><b id="sC">–</b><span>On time (≤ 2 h)</span></div>
+      <div class="stat"><b id="sA">–</b><span>Average gap</span></div>
+      <div class="stat"><b id="sL">0</b><span>Late turns</span></div>
+    </div>
+    <div class="logw">
+      <table>
+        <thead><tr><th>Time</th><th>Bed</th><th>Event</th><th>Staff</th><th>Gap</th><th>Result</th></tr></thead>
+        <tbody id="logB"><tr><td colspan="6" style="color:var(--muted)">No entries yet</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+<footer>Student prototype for HS5351 Nursing Project. Not a real hospital system. Patients are fictional and IC numbers are masked. Updates are sent through a free public relay (ntfy.sh), room <span id="room"></span>.</footer>
+<script>
+const INTERVAL=120, AMBER_AT=105, BLINK_AFTER=15;
+const POS={RIGHT:'RIGHT SIDE',SUPINE:'SUPINE (ON BACK)',LEFT:'LEFT SIDE'};
+const NEXT={RIGHT:'SUPINE',SUPINE:'LEFT',LEFT:'RIGHT'};
+const C={green:'#22c55e',amber:'#f59e0b',red:'#ef4444',grey:'#64748b'};
+const $=id=>document.getElementById(id);
+const ROOM=(new URLSearchParams(location.search).get('room'))||'smartnudge1234-ward74-demo';
+$('room').textContent=ROOM;
+const pad=n=>String(n).padStart(2,'0');
+const fmt=ms=>{const d=new Date(ms);return pad(d.getHours())+':'+pad(d.getMinutes())};
+const fmtGap=m=>m==null?'–':`${Math.floor(m/60)} h ${pad(Math.round(m%60))} min`;
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let devs={};   // latest message per device
+
+function simNow(d){return d.sim+(Date.now()-d.real)*d.speed}
+
+function renderBeds(){
+  const list=Object.values(devs).sort((a,b)=>a.bed.localeCompare(b.bed));
+  if(!list.length)return;
+  $('beds').innerHTML=list.map(d=>{
+    const p=d.patient, cur=d.cur, now=simNow(d);
+    if(!d.on)return `<div class="bed off" style="--st:${C.grey}"><div class="bt"><span class="no">Bed ${esc(d.bed)}</span><span class="nm">${p?esc(p.name):'No patient'}</span></div><div class="meta">Device is switched OFF</div></div>`;
+    if(!p||!cur)return `<div class="bed" style="--st:${C.grey}"><div class="bt"><span class="no">Bed ${esc(d.bed)}</span><span class="nm">No patient linked</span></div><div class="meta">Waiting for staff to link a patient by wristband scan</div></div>`;
+    const e=(now-cur.t)/60000, st=e<AMBER_AT?'green':e<=INTERVAL?'amber':'red';
+    const over=e>INTERVAL, secs=over?Math.floor((e-INTERVAL)*60):Math.max(0,Math.ceil((INTERVAL-e)*60));
+    const cd=(over?'+':'')+pad(Math.floor(secs/3600))+':'+pad(Math.floor(secs%3600/60));
+    const blink=st==='red'&&e-INTERVAL>=BLINK_AFTER;
+    const stx=st==='green'?'ON TIME':st==='amber'?'TURN DUE SOON':'LATE TURN';
+    return `<div class="bed${blink?' blink':''}" style="--st:${C[st]}">
+      <div class="bt"><span class="no">Bed ${esc(d.bed)}</span><span class="nm">${esc(p.name)}</span><span class="ic">${esc(p.ic)} · ${p.age} ${esc(p.sex[0])}</span></div>
+      <div class="meta">${esc(p.mrn)} · ${esc(p.dx)} · Braden <b>${p.braden} high risk</b></div>
+      <div class="row">
+        <div class="cdw"><div class="cdl">${over?'OVERDUE BY':'NEXT TURN IN'}</div><div class="cd">${cd}</div><div class="stx">${stx}</div></div>
+        <div class="kv">
+          <span>Position now</span><b>${POS[cur.pos]}</b>
+          <span>Next position</span><b>${POS[NEXT[cur.pos]]}</b>
+          <span>Last turn</span><b>${fmt(cur.t)} · Staff ${esc(cur.staff.id)} (${esc(cur.staff.name)})</b>
+          <span>Device time</span><b>${fmt(now)}${d.speed!==1?` · demo speed ${d.speed}×`:''}</b>
+        </div>
+      </div></div>`;
+  }).join('');
+}
+
+function renderLog(){
+  const list=Object.values(devs);
+  let turns=0,ok=0,gap=0,gn=0;
+  list.forEach(d=>{turns+=d.stats.turns;ok+=d.stats.ok;if(d.stats.avg!=null){gap+=d.stats.avg*d.stats.turns;gn+=d.stats.turns}});
+  $('sT').textContent=turns; $('sC').textContent=turns?Math.round(ok/turns*100)+'%':'–';
+  $('sA').textContent=gn?fmtGap(gap/gn):'–'; $('sL').textContent=turns-ok;
+  const rows=[];
+  list.forEach(d=>d.log.forEach(l=>rows.push({...l,bed:d.bed})));
+  rows.sort((a,b)=>b.t-a.t);
+  if(!rows.length)return;
+  $('logB').innerHTML=rows.map(l=>l.sys
+    ?`<tr><td>${fmt(l.t)}</td><td>${esc(l.bed)}</td><td colspan="3">${esc(l.sys)}</td><td><span class="tag sys">Device</span></td></tr>`
+    :`<tr><td>${fmt(l.t)}</td><td>${esc(l.bed)}</td><td>Turned to <b>${POS[l.pos]}</b></td><td>${esc(l.staff.id)} (${esc(l.staff.name)})</td><td>${fmtGap(l.gap)}</td><td>${
+      l.gap==null?'<span class="tag start">Start</span>':l.onTime?'<span class="tag ok">On time</span>':'<span class="tag late">Late</span>'}</td></tr>`).join('');
+}
+
+function take(d){
+  if(!d||d.v!==1||!d.dev)return;
+  const old=devs[d.dev]; if(old&&old.real>d.real)return;
+  devs[d.dev]=d; renderBeds(); renderLog();
+}
+
+function live(state,txt){const l=$('live');l.className='live '+state;$('liveTxt').textContent=txt}
+let es=null;
+function connect(){
+  try{es&&es.close()}catch(e){}
+  es=new EventSource(`https://ntfy.sh/${encodeURIComponent(ROOM)}/sse?since=12h`);
+  es.onopen=()=>live('on','Live');
+  es.onerror=()=>live('bad','Reconnecting…');
+  es.onmessage=ev=>{try{const m=JSON.parse(ev.data);if(m.event==='message')take(JSON.parse(m.message))}catch(e){}};
+}
+connect();
+
+setInterval(()=>{const n=new Date();$('clock').textContent=pad(n.getHours())+':'+pad(n.getMinutes())+':'+pad(n.getSeconds());renderBeds()},1000);
+$('fs').onclick=()=>{if(!document.fullscreenElement)document.documentElement.requestFullscreen().catch(()=>{});else document.exitFullscreen()};
+window.__take=take; // for testing
+</script>
+</body>
+</html>

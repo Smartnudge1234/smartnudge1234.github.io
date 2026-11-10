@@ -327,6 +327,13 @@ th{color:var(--muted);font-weight:600;font-size:12px}
       <div><b>Phone NFC:</b> <span id="nfcStat"></span> <button class="opt" id="nfcOn" style="padding:6px 10px">Turn on NFC reader</button></div>
     </div>
     <div id="regList"></div>
+    <h4>Live EHR screen</h4>
+    <p class="hint" style="margin-top:0">Every turn is also sent to the full-screen ward EHR page. Open it on a laptop or iPad: <b>smartnudge1234.github.io/ehr.html</b></p>
+    <div class="readers">
+      <div><b>EHR sync:</b> <span id="ehrStat">waiting for first update</span></div>
+      <div><button class="opt" id="ehrToggle" style="padding:6px 10px;margin-left:0">Sync ON</button>
+        <button class="opt" id="ehrNow" style="padding:6px 10px">Send now</button></div>
+    </div>
     <h4>Ceiling light (Bluetooth)</h4>
     <p class="hint" style="margin-top:0">Close the duoCo Strip app first. Then press Connect and pick your light controller.</p>
     <div class="readers">
@@ -838,9 +845,43 @@ $('bleAlt').onclick=async()=>{if(!bleChr){bleState('connect the light first');re
 document.querySelectorAll('[data-bt]').forEach(b=>b.onclick=()=>{bleTest=b.dataset.bt;clearTimeout(bleTestT);bleTestT=setTimeout(()=>{bleTest=null},3000)});
 if(!navigator.bluetooth)bleState(window.top!==window.self?'blocked inside the Claude link – open the GitHub copy':'not supported in this browser');
 
+// ===== Live EHR screen (ehr.html) – updates sent through the free ntfy.sh relay =====
+// Demo only: fictional patients, masked IC. Anyone who knows the room name could read it.
+const EHR_ROOM=(new URLSearchParams(location.search).get('room'))||'smartnudge1234-ward74-demo';
+let ehrSync=true, devId='';
+try{ehrSync=localStorage.getItem('sn_sync')!=='off';devId=localStorage.getItem('sn_dev')||''}catch(e){}
+if(!devId){devId='D'+Math.random().toString(36).slice(2,8);try{localStorage.setItem('sn_dev',devId)}catch(e){}}
+let ehrLast=null, ehrT=null;
+function ehrStat(t){$('ehrStat').textContent=t}
+function ehrPayload(){
+  const turns=log.filter(l=>!l.sys&&l.gap!=null), ok=turns.filter(l=>l.onTime).length;
+  return {v:1,dev:devId,bed:bedName(),on:isOn,speed,sim,real:Date.now(),
+    patient:patient?{name:patient.name,ic:mask(patient.ic),age:patient.age,sex:patient.sex,mrn:patient.mrn,dx:patient.dx,braden:patient.braden,ward:patient.ward}:null,
+    cur:current?{t:current.t,pos:current.pos,staff:current.staff}:null,
+    stats:{turns:turns.length,ok,avg:turns.length?turns.reduce((a,b)=>a+b.gap,0)/turns.length:null},
+    log:log.slice(0,10).map(l=>l.sys?{t:l.t,sys:l.sys}:{t:l.t,pos:l.pos,staff:l.staff,gap:l.gap,onTime:l.onTime})};
+}
+function ehrSend(){
+  clearTimeout(ehrT); if(!ehrSync)return;
+  fetch('https://ntfy.sh/'+EHR_ROOM,{method:'POST',body:JSON.stringify(ehrPayload())})
+    .then(r=>ehrStat(r.ok?'sent ✓ at '+fmt(sim):'not sent (error '+r.status+')'))
+    .catch(()=>ehrStat('not sent – check internet'));
+}
+function ehrSoon(){clearTimeout(ehrT);ehrT=setTimeout(ehrSend,700)}
+const _renderLog=renderLog;
+renderLog=function(){_renderLog(); if(log[0]!==ehrLast){ehrLast=log[0];ehrSoon()}};
+const _setSpeed=setSpeed; setSpeed=function(v){_setSpeed(v);ehrSoon()};
+const _applyBed=applyBed; applyBed=function(){_applyBed();ehrSoon()};
+document.querySelectorAll('[data-jump]').forEach(b=>b.addEventListener('click',ehrSoon));
+function ehrBtn(){$('ehrToggle').textContent=ehrSync?'Sync ON':'Sync OFF';$('ehrToggle').classList.toggle('on',ehrSync)}
+$('ehrToggle').onclick=()=>{ehrSync=!ehrSync;try{localStorage.setItem('sn_sync',ehrSync?'on':'off')}catch(e){}ehrBtn();if(ehrSync)ehrSend();else ehrStat('sync off')};
+$('ehrNow').onclick=ehrSend;
+ehrBtn();
+
 // Start
 setSpeed(1);
 addTurn('RIGHT',STAFF[0]);
+renderLog();
 requestAnimationFrame(tick);
 </script>
 </body>
