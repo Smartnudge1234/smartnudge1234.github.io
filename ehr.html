@@ -57,6 +57,14 @@ td:nth-child(1),td:nth-child(2),td:nth-child(5){white-space:nowrap}
 td{padding:10px 12px;border-top:1px solid var(--line);vertical-align:top}
 .tag{display:inline-block;white-space:nowrap;border-radius:999px;padding:2px 10px;font-size:12px;font-weight:700}
 .tag.ok{background:#14532d;color:#86efac}.tag.late{background:#7f1d1d;color:#fca5a5}.tag.start{background:#1e3a8a;color:#bfdbfe}.tag.sys{background:#334155;color:#cbd5e1}
+.lh{display:flex;align-items:center;gap:10px;margin-bottom:12px}.lh h2{margin:0;flex:1}
+.tb{background:var(--panel2);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:7px 12px;font:600 13px Inter,sans-serif;cursor:pointer;white-space:nowrap}
+.tb.warn{border-color:#b91c1c;color:#fca5a5}.tb.warn.arm{background:#7f1d1d;color:#fff}
+.x{background:none;border:1px solid var(--line);color:var(--muted);border-radius:8px;width:28px;height:28px;cursor:pointer;font-size:14px;line-height:1}
+.x:hover{color:#fca5a5;border-color:#b91c1c}
+.bx{position:absolute;right:14px;top:14px}
+.toast{position:fixed;left:50%;bottom:50px;transform:translateX(-50%);background:#0a1626;border:1px solid var(--line);color:var(--fg);padding:10px 16px;border-radius:12px;font-weight:600;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}
 footer{padding:10px 24px;color:var(--muted);font-size:12px;border-top:1px solid var(--line)}
 </style>
 </head>
@@ -77,7 +85,9 @@ footer{padding:10px 24px;color:var(--muted);font-size:12px;border-top:1px solid 
     </div>
   </section>
   <section>
-    <h2>EHR turning log (audit trail)</h2>
+    <div class="lh"><h2>EHR turning log (audit trail)</h2>
+      <button class="tb" id="recon" title="Reconnect to the device">↻ Refresh</button>
+      <button class="tb warn" id="clr" title="Remove all records from this screen">🗑 Clear log</button></div>
     <div class="stats">
       <div class="stat"><b id="sT">0</b><span>Turns logged</span></div>
       <div class="stat"><b id="sC">–</b><span>On time (≤ 2 h)</span></div>
@@ -86,13 +96,14 @@ footer{padding:10px 24px;color:var(--muted);font-size:12px;border-top:1px solid 
     </div>
     <div class="logw">
       <table>
-        <thead><tr><th>Time</th><th>Bed</th><th>Event</th><th>Staff</th><th>Gap</th><th>Result</th></tr></thead>
-        <tbody id="logB"><tr><td colspan="6" style="color:var(--muted)">No entries yet</td></tr></tbody>
+        <thead><tr><th>Time</th><th>Bed</th><th>Event</th><th>Staff</th><th>Gap</th><th>Result</th><th></th></tr></thead>
+        <tbody id="logB"><tr><td colspan="7" style="color:var(--muted)">No entries yet</td></tr></tbody>
       </table>
     </div>
   </section>
 </main>
-<footer>Student prototype for HS5351 Nursing Project. Not a real hospital system. Patients are fictional and IC numbers are masked. Updates are sent through a free public relay (ntfy.sh), room <span id="room"></span>.</footer>
+<div class="toast" id="toast"></div>
+<footer>Student prototype for HS5351 Nursing Project. Not a real hospital system. Patients are fictional and IC numbers are masked. Updates are sent through a free public relay (ntfy.sh), room <span id="room"></span>. Clearing or deleting here only changes this screen, not the device.</footer>
 <script>
 const INTERVAL=120, AMBER_AT=105, BLINK_AFTER=15;
 const POS={RIGHT:'RIGHT SIDE',SUPINE:'SUPINE (ON BACK)',LEFT:'LEFT SIDE'};
@@ -106,22 +117,29 @@ const fmt=ms=>{const d=new Date(ms);return pad(d.getHours())+':'+pad(d.getMinute
 const fmtGap=m=>m==null?'–':`${Math.floor(m/60)} h ${pad(Math.round(m%60))} min`;
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let devs={};   // latest message per device
+let store={};  // log entries kept by this screen, key = device|time
+const LS=k=>{try{return JSON.parse(localStorage.getItem('ehr_'+k)||'null')}catch(e){return null}};
+const SV=(k,v)=>{try{localStorage.setItem('ehr_'+k,JSON.stringify(v))}catch(e){}};
+let clearReal=LS('clear')||0, cut=LS('cut')||{}, hidden=new Set(LS('hidden')||[]), gone=LS('gone')||{};
+function toast(t){const el=$('toast');el.textContent=t;el.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove('show'),2200)}
 
+const EMPTY=document.getElementById('beds').innerHTML;
 function simNow(d){return d.sim+(Date.now()-d.real)*d.speed}
 
 function renderBeds(){
   const list=Object.values(devs).sort((a,b)=>a.bed.localeCompare(b.bed));
-  if(!list.length)return;
+  if(!list.length){$('beds').innerHTML=EMPTY;return}
   $('beds').innerHTML=list.map(d=>{
     const p=d.patient, cur=d.cur, now=simNow(d);
-    if(!d.on)return `<div class="bed off" style="--st:${C.grey}"><div class="bt"><span class="no">Bed ${esc(d.bed)}</span><span class="nm">${p?esc(p.name):'No patient'}</span></div><div class="meta">Device is switched OFF</div></div>`;
-    if(!p||!cur)return `<div class="bed" style="--st:${C.grey}"><div class="bt"><span class="no">Bed ${esc(d.bed)}</span><span class="nm">No patient linked</span></div><div class="meta">Waiting for staff to link a patient by wristband scan</div></div>`;
+    const bx=`<button class="x bx" data-gone="${esc(d.dev)}" title="Remove this bed from the screen">✕</button>`;
+    if(!d.on)return `<div class="bed off" style="--st:${C.grey}">${bx}<div class="bt"><span class="no">Bed ${esc(d.bed)}</span><span class="nm">${p?esc(p.name):'No patient'}</span></div><div class="meta">Device is switched OFF</div></div>`;
+    if(!p||!cur)return `<div class="bed" style="--st:${C.grey}">${bx}<div class="bt"><span class="no">Bed ${esc(d.bed)}</span><span class="nm">No patient linked</span></div><div class="meta">Waiting for staff to link a patient by wristband scan</div></div>`;
     const e=(now-cur.t)/60000, st=e<AMBER_AT?'green':e<=INTERVAL?'amber':'red';
     const over=e>INTERVAL, secs=over?Math.floor((e-INTERVAL)*60):Math.max(0,Math.ceil((INTERVAL-e)*60));
     const cd=(over?'+':'')+pad(Math.floor(secs/3600))+':'+pad(Math.floor(secs%3600/60));
     const blink=st==='red'&&e-INTERVAL>=BLINK_AFTER;
     const stx=st==='green'?'ON TIME':st==='amber'?'TURN DUE SOON':'LATE TURN';
-    return `<div class="bed${blink?' blink':''}" style="--st:${C[st]}">
+    return `<div class="bed${blink?' blink':''}" style="--st:${C[st]}">${bx}
       <div class="bt"><span class="no">Bed ${esc(d.bed)}</span><span class="nm">${esc(p.name)}</span><span class="ic">${esc(p.ic)} · ${p.age} ${esc(p.sex[0])}</span></div>
       <div class="meta">${esc(p.mrn)} · ${esc(p.dx)} · Braden <b>${p.braden} high risk</b></div>
       <div class="row">
@@ -137,24 +155,25 @@ function renderBeds(){
 }
 
 function renderLog(){
-  const list=Object.values(devs);
-  let turns=0,ok=0,gap=0,gn=0;
-  list.forEach(d=>{turns+=d.stats.turns;ok+=d.stats.ok;if(d.stats.avg!=null){gap+=d.stats.avg*d.stats.turns;gn+=d.stats.turns}});
-  $('sT').textContent=turns; $('sC').textContent=turns?Math.round(ok/turns*100)+'%':'–';
-  $('sA').textContent=gn?fmtGap(gap/gn):'–'; $('sL').textContent=turns-ok;
-  const rows=[];
-  list.forEach(d=>d.log.forEach(l=>rows.push({...l,bed:d.bed})));
-  rows.sort((a,b)=>b.t-a.t);
-  if(!rows.length)return;
+  const rows=Object.values(store).filter(l=>!hidden.has(l.key)).sort((a,b)=>b.t-a.t);
+  const turns=rows.filter(l=>!l.sys&&l.gap!=null), ok=turns.filter(l=>l.onTime).length;
+  $('sT').textContent=turns.length; $('sC').textContent=turns.length?Math.round(ok/turns.length*100)+'%':'–';
+  $('sA').textContent=turns.length?fmtGap(turns.reduce((a,b)=>a+b.gap,0)/turns.length):'–'; $('sL').textContent=turns.length-ok;
+  if(!rows.length){$('logB').innerHTML='<tr><td colspan="7" style="color:var(--muted)">No entries yet</td></tr>';return}
+  const del=l=>`<td><button class="x" data-del="${esc(l.key)}" title="Delete this record">✕</button></td>`;
   $('logB').innerHTML=rows.map(l=>l.sys
-    ?`<tr><td>${fmt(l.t)}</td><td>${esc(l.bed)}</td><td colspan="3">${esc(l.sys)}</td><td><span class="tag sys">Device</span></td></tr>`
+    ?`<tr><td>${fmt(l.t)}</td><td>${esc(l.bed)}</td><td colspan="3">${esc(l.sys)}</td><td><span class="tag sys">Device</span></td>${del(l)}</tr>`
     :`<tr><td>${fmt(l.t)}</td><td>${esc(l.bed)}</td><td>Turned to <b>${POS[l.pos]}</b></td><td>${esc(l.staff.id)} (${esc(l.staff.name)})</td><td>${fmtGap(l.gap)}</td><td>${
-      l.gap==null?'<span class="tag start">Start</span>':l.onTime?'<span class="tag ok">On time</span>':'<span class="tag late">Late</span>'}</td></tr>`).join('');
+      l.gap==null?'<span class="tag start">Start</span>':l.onTime?'<span class="tag ok">On time</span>':'<span class="tag late">Late</span>'}</td>${del(l)}</tr>`).join('');
 }
 
 function take(d){
   if(!d||d.v!==1||!d.dev)return;
-  const old=devs[d.dev]; if(old&&old.real>d.real)return;
+  if(d.real<=clearReal&&!cut[d.dev])return;
+  if(gone[d.dev]&&d.real<=gone[d.dev])return;
+  const c=cut[d.dev];
+  d.log.forEach(l=>{if(c!=null&&l.t<=c)return;const key=d.dev+'|'+Math.round(l.t)+(l.sys?'s':'');store[key]={...l,bed:d.bed,dev:d.dev,key}});
+  const old=devs[d.dev]; if(old&&old.real>d.real){renderLog();return}
   devs[d.dev]=d; renderBeds(); renderLog();
 }
 
@@ -171,6 +190,18 @@ connect();
 
 setInterval(()=>{const n=new Date();$('clock').textContent=pad(n.getHours())+':'+pad(n.getMinutes())+':'+pad(n.getSeconds());renderBeds()},1000);
 $('fs').onclick=()=>{if(!document.fullscreenElement)document.documentElement.requestFullscreen().catch(()=>{});else document.exitFullscreen()};
+// controls
+let armT=null;
+$('clr').onclick=()=>{
+  const b=$('clr');
+  if(!b.classList.contains('arm')){b.classList.add('arm');b.textContent='Tap again to clear';clearTimeout(armT);armT=setTimeout(()=>{b.classList.remove('arm');b.textContent='🗑 Clear log'},3000);return}
+  clearTimeout(armT);b.classList.remove('arm');b.textContent='🗑 Clear log';
+  clearReal=Date.now(); Object.values(devs).forEach(d=>cut[d.dev]=simNow(d)); store={}; hidden=new Set();
+  SV('clear',clearReal);SV('cut',cut);SV('hidden',[]); renderLog(); toast('Log cleared. New turns will appear here.');
+};
+$('logB').addEventListener('click',e=>{const b=e.target.closest('[data-del]');if(!b)return;hidden.add(b.dataset.del);SV('hidden',[...hidden]);renderLog();toast('Record deleted')});
+$('beds').addEventListener('click',e=>{const b=e.target.closest('[data-gone]');if(!b)return;gone[b.dataset.gone]=Date.now();delete devs[b.dataset.gone];SV('gone',gone);renderBeds();toast('Bed removed. It comes back when the device sends a new update.')});
+$('recon').onclick=()=>{live('','Connecting…');connect();toast('Refreshing…')};
 window.__take=take; // for testing
 </script>
 </body>
